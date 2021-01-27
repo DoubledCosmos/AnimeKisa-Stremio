@@ -1,0 +1,1 @@
+module.exports = {SUB: 'Subbed', DUB: 'Dubbed', MOV: 'Movies'};
