@@ -1,7 +1,17 @@
 'use strict';
 
 const {JSDOM} = require('jsdom');
+const getID = require('./id-api');
+
 const replaceRgx = /<div class="lisbg">(.*)<\/div>\n(<div class=")similarboxmain(">)+/g;
+const {DUB, SUB, MOV} = require('../util/consts');
+
+/**
+ * @typedef {Object} Results
+ * @property {Anime[]} movies
+ * @property {Anime[]} dubbed
+ * @property {Anime[]} subbed
+ */
 
 /**
  * @typedef {Object} Anime
@@ -45,11 +55,11 @@ function getAllFrom(type, doc) {
                 name: elem.querySelector('.similardd')?.textContent,
                 id: '',
                 picture: elem.querySelector('img')?.src,
-                categories: elem.querySelector('.similardd-categories')?.textContent?.split(', '),
+                categories: elem.querySelector('.similardd-categories')?.textContent?.split(', ') || [],
                 episodes: [],
                 description: ''
             };
-            anime.id = require('./id-api')(this.name);
+            anime.id = getID(anime.name);
             return anime;
         });
 }
@@ -57,7 +67,7 @@ function getAllFrom(type, doc) {
 /**
  * Gets all of the necessary data for a search list
  * @param {String} stringHTML
- * @return {{movies: Anime[], dubbed: Anime[], subbed: Anime[]}}
+ * @return {Results}
  */
 function getSearchResults(stringHTML) {
     const doc = parseRaw(stringHTML.replace(replaceRgx, (match, p1, p2, p3) => p2 + p1 + p3));
@@ -88,9 +98,35 @@ function getAnimeInfo(anime, stringHTML) {
 
             };
         });
+    return anime;
+}
+
+/**
+ *
+ * @param {String} stringHTML
+ * @return {Anime[]}
+ */
+function getTopResults(stringHTML) {
+    const doc = parseRaw(stringHTML);
+    return Array.from(doc.querySelectorAll('.an'))
+        .map(elem => {
+            const img = elem.querySelector('img');
+            const anime = {
+                ref: elem.href,
+                name: img?.alt,
+                id: '',
+                picture: img?.src,
+                categories: elem.querySelector('.similardd-categories')?.textContent?.split(', ') || [],
+                episodes: [],
+                description: ''
+            };
+            anime.id = getID(anime.name);
+            return anime;
+        });
 }
 
 module.exports = {
     getAnimeInfo,
-    getSearchResults
+    getSearchResults,
+    getTopResults
 };
