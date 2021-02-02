@@ -2,8 +2,10 @@
 
 const ul = require('urllib');
 const parser = require('./ak-parse');
+const cache = require('../util/cacher');
+const getID = require('./id-api');
 
-const AK_ADDRESS = 'https://animekisa.tv/';
+const {AK_ADDRESS} = require('../util/consts');
 const SEARCH = AK_ADDRESS + 'search?q=';
 const POPULAR = AK_ADDRESS + 'popular';
 const ALLTIME = POPULAR + '-alltime';
@@ -18,30 +20,47 @@ function search(name) {
     return ul.request(SEARCH + name)
         .then(res => {
             const ret = parser.getSearchResults(res?.data?.toString() || '');
-            ret.dubbed?.map(getInfo);
-            ret.subbed?.map(getInfo);
-            ret.movies?.map(getInfo);
-            return ret;
+            return Promise.all([
+                Promise.all(ret.Dubbed?.map(getInfo)),
+                Promise.all(ret.Subbed?.map(getInfo)),
+                Promise.all(ret.Movies?.map(getInfo))
+            ]);
+        })
+        .then(([dub, sub, mov]) => {
+            return {
+                Dubbed: dub,
+                Subbed: sub,
+                Movies: mov
+            };
         });
 }
 
-function getPopular(subbed = true, allTime = false) {
-    return ul.request(allTime ? ALLTIME : POPULAR + subbed ? '' : DUBBED)
-        .then(res => parser.getTopResults(res?.data?.toString()).map(getInfo));
+/**
+ * Obtains the top 20(?) most popular anime
+ * @param {PopSet} set
+ * @return {Promise<Anime[]>}
+ */
+function getPopular(set) {
+    return ul.request((set.allTime ? ALLTIME : POPULAR) + (set.subbed ? '' : DUBBED))
+        .then(res => Promise.all(parser.getTopResults(res?.data?.toString()).map(getInfo)));
 }
 
 /**
- * Fills in episode links and anime description
+ * Fills in episode links and anime id
  * @param {Anime} anime
  * @return {Promise<Anime>}
  */
 function getInfo(anime) {
-    return ul.request(AK_ADDRESS + anime.ref)
-        .then(res => parser.getAnimeInfo(anime, res?.data?.toString() || ''));
+    return getID(anime.name).then(id => anime.id = id)
+        .then(id => cache.getAni(id))
+        .then(c => {
+            if(c) return c;
+            return ul.request(AK_ADDRESS + anime.ref)
+                .then(res => parser.getAnimeInfo(anime, res?.data?.toString() || ''));
+        });
 }
 
 module.exports = {
-    search,
-    getInfo,
-    getPopular
-}
+    getPopular,
+    search
+};

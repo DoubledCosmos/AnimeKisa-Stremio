@@ -6,7 +6,6 @@
   },
   "extends": "eslint:recommended",
   "parserOptions": {
-    "sourceType": "module",
     "ecmaVersion": 12
   },
   "rules": {
@@ -38,6 +37,21 @@
             "after": true
           },
           "const": {
+            "after": true
+          },
+          "try": {
+            "after": true
+          },
+          "catch": {
+            "after": true
+          },
+          "finally": {
+            "after": true
+          },
+          "import": {
+            "after": true
+          },
+          "from": {
             "after": true
           }
         }

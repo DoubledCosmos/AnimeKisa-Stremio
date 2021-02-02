@@ -2,9 +2,9 @@
 
 /**
  * @typedef {Object} CacheResults
- * @property {String[]} dubbed
- * @property {String[]} subbed
- * @property {String[]} movies
+ * @property {String[]} Dubbed
+ * @property {String[]} Subbed
+ * @property {String[]} Movies
  */
 
 /**
@@ -16,7 +16,11 @@ const video = new Map();
  */
 const anime = new Map();
 /**
- * @type {Map<String, CacheResults>}
+ * @type {Map<PopSet, String[]>}
+ */
+const popular = new Map();
+/**
+ * @type {Map<String, Promise<CacheResults>>}
  */
 const search = new Map();
 
@@ -26,7 +30,7 @@ const search = new Map();
  * @param {String} href
  * @return {String}
  */
-export function getVid(href) {
+function getVid(href) {
     return video.get(href);
 }
 
@@ -35,7 +39,7 @@ export function getVid(href) {
  * @param {String} href
  * @param {String} vidLink
  */
-export function addVid(href, vidLink) {
+function addVid(href, vidLink) {
     if(!video.has(href)) video.set(href, vidLink);
 }
 
@@ -44,7 +48,7 @@ export function addVid(href, vidLink) {
  * @param {String} id
  * @return {Anime}
  */
-export function getAni(id) {
+function getAni(id) {
     return anime.get(id);
 }
 
@@ -52,23 +56,23 @@ export function getAni(id) {
  * Adds an anime, expects it to have Episodes and description
  * @param {Anime} ani
  */
-export function addAni(ani) {
+function addAni(ani) {
     if(!anime.has(ani.id)) anime.set(ani.id, ani);
 }
 
 /**
  * Get search results from cache
  * @param {String} term
- * @return {Results}
+ * @return {Promise<Results>}
  */
-export function getSearch(term) {
-    const res = search.get(term);
-    if(!res) return undefined;
-    return {
-        subbed: res.subbed.map(getAni),
-        dubbed: res.dubbed.map(getAni),
-        movies: res.movies.map(getAni)
-    };
+function getSearch(term) {
+    const promise = search.get(term);
+    if(!promise) return undefined;
+    return promise.then(res => ({
+        Subbed: res.Subbed.map(getAni),
+        Dubbed: res.Dubbed.map(getAni),
+        Movies: res.Movies.map(getAni)
+    }));
 }
 
 const resMapper = a => {
@@ -79,13 +83,45 @@ const resMapper = a => {
 /**
  * Adds search results and its animes to cache
  * @param {String} term
- * @param {Results} res
+ * @param {Promise<Results>} promise
  */
-export function addSearch(term, res) {
-    if(search.has(term)) return;
-    search.set(term, {
-        subbed: res.subbed.map(resMapper),
-        dubbed: res.dubbed.map(resMapper),
-        movies: res.movies.map(resMapper)
-    });
+function addSearch(term, promise) {
+    if(search.has(term)) return getSearch(term);
+    console.log('Adding results from search "' + term + '" to cache');
+    search.set(term, promise.then(res => ({
+        Subbed: res.Subbed.map(resMapper),
+        Dubbed: res.Dubbed.map(resMapper),
+        Movies: res.Movies.map(resMapper)
+    })));
+    return promise;
 }
+
+/**
+ * Get popular animes from cache
+ * @param {PopSet} id
+ * @return {Anime[]}
+ */
+function getPop(id) {
+    return popular.get(id)?.map(getAni);
+}
+
+/**
+ * Adds popular animes to cache
+ * @param {PopSet} id
+ * @param {Anime[]} animes
+ */
+function addPop(id, animes) {
+    console.log('Adding results from popular to cache');
+    if(!popular.has(id)) popular.set(id, animes.map(resMapper));
+}
+
+module.exports = {
+    addVid,
+    addAni,
+    addPop,
+    addSearch,
+    getSearch,
+    getPop,
+    getAni,
+    getVid
+};
